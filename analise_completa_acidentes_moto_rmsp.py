@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score, classification_report
 from sklearn.preprocessing import LabelEncoder
 from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
 
 plt.style.use('seaborn-v0_8')
 plt.rcParams['figure.figsize'] = (14, 8)
@@ -345,10 +346,13 @@ plt.savefig('importancia_features.png', dpi=300, bbox_inches='tight')
 # ================================
 # PARTE IV: TREINO SEM BALANCEAMENTO
 # ================================
+
 print("\n🤖 TREINAMENTO SEM BALANCEAMENTO (APENAS VARIÁVEIS PREDITIVAS)")
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-clf_baseline = RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced")
+# Ajuste de pesos para penalizar mais FATAL e GRAVE
+class_weights = {0: 1, 1: 3, 2: 3}  # 0=LEVE, 1=GRAVE, 2=FATAL
+clf_baseline = RandomForestClassifier(n_estimators=100, random_state=42, class_weight=class_weights)
 clf_baseline.fit(X_train, y_train)
 y_pred_base = clf_baseline.predict(X_test)
 
@@ -358,6 +362,22 @@ print(f"F1-score (baseline): {f1_base:.4f}")
 # Relatório detalhado
 print("\n📋 RELATÓRIO DETALHADO (Baseline):")
 print(classification_report(y_test, y_pred_base, target_names=grav_encoder_pred.classes_))
+
+# Threshold customizado para maximizar recall de FATAL/GRAVE
+print("\n📋 RELATÓRIO DETALHADO (Baseline - Threshold customizado):")
+proba_base = clf_baseline.predict_proba(X_test)
+# Definir threshold menor para FATAL (classe 2) e GRAVE (classe 1)
+threshold_fatal = 0.3
+threshold_grave = 0.3
+y_pred_thresh = []
+for p in proba_base:
+    if p[2] >= threshold_fatal:
+        y_pred_thresh.append(2)
+    elif p[1] >= threshold_grave:
+        y_pred_thresh.append(1)
+    else:
+        y_pred_thresh.append(0)
+print(classification_report(y_test, y_pred_thresh, target_names=grav_encoder_pred.classes_))
 
 # ================================
 # PARTE V: TREINO COM SMOTE
@@ -377,6 +397,25 @@ print(f"F1-score (SMOTE): {f1_smote:.4f}")
 # Relatório detalhado SMOTE
 print("\n📋 RELATÓRIO DETALHADO (SMOTE):")
 print(classification_report(y_test, y_pred_smote, target_names=grav_encoder_pred.classes_))
+
+# ================================
+# PARTE V.2: TREINO COM RANDOM UNDERSAMPLING
+# ================================
+print("\n🤖 TREINAMENTO COM RANDOM UNDERSAMPLING (APENAS VARIÁVEIS PREDITIVAS)")
+
+rus = RandomUnderSampler(random_state=42)
+X_rus, y_rus = rus.fit_resample(X_train, y_train)
+
+clf_rus = RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced")
+clf_rus.fit(X_rus, y_rus)
+y_pred_rus = clf_rus.predict(X_test)
+
+f1_rus = f1_score(y_test, y_pred_rus, average="macro")
+print(f"F1-score (RandomUnderSampler): {f1_rus:.4f}")
+
+# Relatório detalhado RandomUnderSampler
+print("\n📋 RELATÓRIO DETALHADO (RandomUnderSampler):")
+print(classification_report(y_test, y_pred_rus, target_names=grav_encoder_pred.classes_))
 
 # ================================
 # PARTE V.1: OTIMIZAÇÃO DE HIPERPARÂMETROS COM GRIDSEARCHCV
@@ -417,12 +456,18 @@ print("✅ Resultados do GridSearchCV salvos em GRIDSEARCHCV_RESULTADOS.txt")
 # ================================
 print("\n📊 COMPARAÇÃO FINAL - MODELO PREDITIVO")
 print("=" * 50)
+
 print(f"   • Sem balanceamento: {f1_base:.4f}")
 print(f"   • Com SMOTE:         {f1_smote:.4f}")
+print(f"   • Com RandomUnderSampler: {f1_rus:.4f}")
 
-if f1_smote > f1_base:
+
+if f1_smote > f1_base and f1_smote > f1_rus:
     melhor_modelo = "SMOTE"
     melhor_score = f1_smote
+elif f1_rus > f1_base and f1_rus > f1_smote:
+    melhor_modelo = "RandomUnderSampler"
+    melhor_score = f1_rus
 else:
     melhor_modelo = "Baseline"
     melhor_score = f1_base
@@ -618,7 +663,8 @@ print("\n✅ ANÁLISE COMPLETA EXPANDIDA FINALIZADA!")
 # ================================
 # TABELA DE COMPARAÇÃO FINAL DOS MODELOS
 # ================================
-print("\n📊 TABELA DE COMPARAÇÃO FINAL (Baseline × SMOTE × GridSearch × GridSearch+SMOTE)")
+
+print("\n📊 TABELA DE COMPARAÇÃO FINAL (Baseline × SMOTE × RandomUnderSampler × GridSearch × GridSearch+SMOTE)")
 
 # Treino GridSearch sem SMOTE
 rf_gs_base = RandomForestClassifier(**gs.best_params_, random_state=42, class_weight="balanced")
@@ -631,8 +677,8 @@ f1_gs_smote = f1_score(y_test, y_pred_gs, average="macro")
 
 # Tabela resumo
 comparacao = pd.DataFrame({
-    'Modelo': ['Baseline', 'SMOTE', 'GridSearch', 'GridSearch+SMOTE'],
-    'F1-macro': [f1_base, f1_smote, f1_gs_base, f1_gs_smote]
+    'Modelo': ['Baseline', 'SMOTE', 'RandomUnderSampler', 'GridSearch', 'GridSearch+SMOTE'],
+    'F1-macro': [f1_base, f1_smote, f1_rus, f1_gs_base, f1_gs_smote]
 })
 print(comparacao.to_string(index=False))
 
@@ -643,11 +689,13 @@ print("✅ Tabela de comparação salva em comparacao_modelos.csv")
 # ================================
 # MATRIZ DE DECISÃO (MATRIZ DE CONFUSÃO) DOS MODELOS
 # ================================
+
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 modelos = {
     'Baseline': y_pred_base,
     'SMOTE': y_pred_smote,
+    'RandomUnderSampler': y_pred_rus,
     'GridSearch': y_pred_gs_base,
     'GridSearch+SMOTE': y_pred_gs
 }
@@ -662,3 +710,40 @@ for nome, y_pred in modelos.items():
     plt.savefig(f'matriz_decisao_{nome.lower()}.png', dpi=300, bbox_inches='tight')
     plt.close()
     print(f"✅ Matriz de decisão gerada para {nome}: matriz_decisao_{nome.lower()}.png")
+    # Salvar matriz de confusão como tabela CSV
+    cm_df = pd.DataFrame(cm, index=grav_encoder_pred.classes_, columns=grav_encoder_pred.classes_)
+    cm_df.to_csv(f'matriz_confusao_{nome.lower()}.csv', encoding='utf-8')
+    print(f"✅ Matriz de confusão (tabela) salva para {nome}: matriz_confusao_{nome.lower()}.csv")
+
+    # Comparação de métricas dos modelos
+    from sklearn.metrics import precision_score, recall_score
+    metricas = []
+    for nome, y_pred in modelos.items():
+        f1 = f1_score(y_test, y_pred, average="macro")
+        recall = recall_score(y_test, y_pred, average="macro")
+        precision = precision_score(y_test, y_pred, average="macro")
+        metricas.append({
+            'Modelo': nome,
+            'F1-macro': f1,
+            'Recall-macro': recall,
+            'Precision-macro': precision
+        })
+    metricas_df = pd.DataFrame(metricas)
+    metricas_df.to_csv('metricas_modelos.csv', index=False, float_format='%.4f', encoding='utf-8')
+    print("✅ Tabela de métricas dos modelos salva em metricas_modelos.csv")
+
+    # Gráfico de barras comparando F1, recall e precisão
+    plt.figure(figsize=(10, 6))
+    bar_width = 0.25
+    x = np.arange(len(metricas_df['Modelo']))
+    plt.bar(x - bar_width, metricas_df['F1-macro'], width=bar_width, label='F1-macro')
+    plt.bar(x, metricas_df['Recall-macro'], width=bar_width, label='Recall-macro')
+    plt.bar(x + bar_width, metricas_df['Precision-macro'], width=bar_width, label='Precision-macro')
+    plt.xticks(x, metricas_df['Modelo'])
+    plt.ylabel('Score')
+    plt.title('Comparação de Métricas dos Modelos')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('comparacao_metricas_modelos.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print("✅ Gráfico de comparação de métricas salvo em comparacao_metricas_modelos.png")
