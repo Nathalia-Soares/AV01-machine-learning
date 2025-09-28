@@ -13,11 +13,11 @@ plt.style.use('seaborn-v0_8')
 plt.rcParams['figure.figsize'] = (14, 8)
 plt.rcParams['font.size'] = 10
 
-print("🚦 ANÁLISE COMPLETA MELHORADA: ACIDENTES DE MOTOCICLETA NA RMSP")
+print("ANÁLISE COMPLETA MELHORADA: ACIDENTES DE MOTOCICLETA NA RMSP")
 
-# ================================
+
 # PARTE I: CARREGAMENTO E FILTRO
-# ================================
+
 df = pd.read_csv("pessoas_2022-2025.csv", encoding="latin-1", sep=";")
 df = df[(df["tipo_veiculo_vitima"] == "MOTOCICLETA") &
         (df["regiao_administrativa"] == "METROPOLITANA DE SÃO PAULO")]
@@ -25,13 +25,13 @@ df = df[df["gravidade_lesao"] != "NAO DISPONIVEL"]
 df = df[df["faixa_etaria_legal"] != "NAO DISPONIVEL"]
 df = df[df["sexo"] != "NAO DISPONIVEL"]
 
-print(f"✅ Base final: {df.shape[0]:,} registros")
+print(f"Base final: {df.shape[0]:,} registros")
 
-# ================================
+
 # PARTE II: ANÁLISE EXPLORATÓRIA
-# ================================
 
-print("\n📊 ANÁLISE EXPLORATÓRIA")
+
+print("\nANÁLISE EXPLORATÓRIA")
 
 # 2.1 Histograma de idades
 plt.figure()
@@ -49,7 +49,7 @@ plt.savefig("boxplot_idade_gravidade.png")
 
 # 2.3 Desvio padrão da idade por gravidade
 desvios = df.groupby("gravidade_lesao")["idade"].std().round(2)
-print("\n📌 Desvio padrão da idade por gravidade:")
+print("\nDesvio padrão da idade por gravidade:")
 print(desvios)
 
 # 2.4 Correlação idade × gravidade (codificando gravidade em números)
@@ -57,16 +57,16 @@ grav_encoder = LabelEncoder()
 df["gravidade_num"] = grav_encoder.fit_transform(df["gravidade_lesao"])
 
 corr_val = df[["idade", "gravidade_num"]].corr().iloc[0, 1]
-print(f"\n🔗 Correlação idade × gravidade: {corr_val:.3f}")
+print(f"\nCorrelação idade × gravidade: {corr_val:.3f}")
 
 plt.figure()
 sns.regplot(x="idade", y="gravidade_num", data=df, logistic=True, ci=None, scatter_kws={'alpha':0.2})
 plt.title("Correlação Idade × Gravidade (logit)")
 plt.savefig("correlacao_idade_gravidade.png")
 
-# ================================
+
 # PARTE II.5: ANÁLISE DE CORRELAÇÕES
-# ================================
+
 print("\n🔍 ANÁLISE DE CORRELAÇÕES COM GRAVIDADE")
 
 # Criar cópia para análise de correlações
@@ -289,17 +289,16 @@ for col in essential_cols:
 # Sexo → binário
 df_ml["sexo"] = df_ml["sexo"].map({"FEMININO": 0, "MASCULINO": 1})
 
-# Codificação de categóricas
+# Codificação de categóricas com OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder
 cat_cols = ["municipio", "tipo_via", "tipo_de_vitima", "faixa_etaria_legal", "faixa_etaria_demografica"]
-label_encoders = {}
-for col in cat_cols:
-    if col in df_ml.columns:
-        le = LabelEncoder()
-        # Converter para string e codificar
-        df_ml[col] = df_ml[col].astype(str)
-        df_ml[col] = le.fit_transform(df_ml[col])
-        label_encoders[col] = le
-        print(f"Codificado {col}: {len(le.classes_)} categorias")
+ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+cat_data = df_ml[cat_cols].astype(str)
+cat_encoded = ohe.fit_transform(cat_data)
+cat_feature_names = ohe.get_feature_names_out(cat_cols)
+cat_encoded_df = pd.DataFrame(cat_encoded, columns=cat_feature_names, index=df_ml.index)
+df_ml = pd.concat([df_ml.drop(columns=cat_cols), cat_encoded_df], axis=1)
+print(f"OneHotEncoder aplicado nas colunas: {cat_cols}")
 
 # Target
 y = grav_encoder_pred.fit_transform(df_ml["gravidade_lesao"])
