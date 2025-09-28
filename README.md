@@ -1,5 +1,9 @@
+<div align="center">
+
 # AV1 - MACHINE LEARNING
 ## Análise de Acidentes de Motocicleta RMSP
+
+</div>
 
 Este repositório contém um pipeline completo de análise de dados e machine learning aplicado ao conjunto de dados de acidentes de motocicleta na Região Metropolitana de São Paulo (RMSP) entre 2020 e 2025. O objetivo é explorar os dados, realizar pré-processamento, treinar modelos, avaliar desempenho e gerar conclusões.
 
