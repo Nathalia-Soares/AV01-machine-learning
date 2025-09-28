@@ -48,8 +48,8 @@ Trabalho desenvolvido para a disciplina Aprendizagem de Máquina, do curso de De
 
 1. Clone este repositório:
    ```bash
-   git clone <URL_DO_REPOSITORIO>
-   cd nome_do_repositorio
+   git clone https://github.com/Nathalia-Soares/AV01-machine-learning.git
+   cd AV01-machine-learning
    ```
 
 2. Instale as dependências:
