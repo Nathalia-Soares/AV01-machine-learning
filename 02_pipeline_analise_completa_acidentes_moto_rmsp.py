@@ -1,15 +1,12 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import missingno as msno
 import seaborn as sns
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-from sklearn.metrics import precision_score, recall_score, f1_score, classification_report
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_score, recall_score, f1_score, classification_report
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
@@ -20,17 +17,95 @@ plt.style.use('seaborn-v0_8')
 plt.rcParams['figure.figsize'] = (14, 8)
 plt.rcParams['font.size'] = 10
 
+
 print("ANÁLISE COMPLETA: ACIDENTES DE MOTOCICLETA NA RMSP")
 
 
-# PARTE I: CARREGAMENTO E FILTRO
+# PARTE I: TRATAMENTO ROBUSTO DE DADOS
 
-df = pd.read_csv("pessoas_2022-2025.csv", encoding="latin-1", sep=";")
+
+# Carregar dados
+
+df = pd.read_csv("pessoas_2020-2025.csv", encoding="latin-1", sep=";")
+
+# Remover linhas duplicadas
+df = df.drop_duplicates()
+
+# Remover colunas duplicadas (caso existam)
+df = df.loc[:, ~df.columns.duplicated()]
+
+# Padronizar valores faltantes e inconsistentes
+
+# Tratar faltantes corretamente por tipo
+for col in df.columns:
+    if df[col].dtype == 'O' or str(df[col].dtype).startswith('category'):
+        df[col] = df[col].replace('NAO DISPONIVEL', 'DESCONHECIDO')
+        df[col] = df[col].fillna('DESCONHECIDO')
+    elif np.issubdtype(df[col].dtype, np.number):
+        df[col] = df[col].fillna(df[col].median())
+
+# Padronizar nomes de cidades (remover espaços, acentos, caixa baixa)
+import unicodedata
+if 'municipio' in df.columns:
+    df['municipio'] = df['municipio'].astype(str).str.strip().str.upper()
+    df['municipio'] = df['municipio'].apply(lambda x: unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('ASCII'))
+
+# Discretizar idade em faixas
+if 'idade' in df.columns:
+    df['idade_faixa'] = pd.cut(df['idade'], bins=[0, 18, 25, 35, 45, 60, 100], labels=["0-18", "19-25", "26-35", "36-45", "46-60", "60+"])
+
+# Tratamento de outliers (apenas idade)
+if 'idade' in df.columns:
+    Q1 = df['idade'].quantile(0.25)
+    Q3 = df['idade'].quantile(0.75)
+    IQR = Q3 - Q1
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    df = df[(df['idade'] >= lower) & (df['idade'] <= upper)]
+
+# Normalização de variáveis numéricas
+num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+if num_cols:
+    scaler = StandardScaler()
+    df[num_cols] = scaler.fit_transform(df[num_cols])
+
+# Discretizar nomes das cidades como números (LabelEncoder)
+from sklearn.preprocessing import LabelEncoder
+if 'municipio' in df.columns:
+    le_mun = LabelEncoder()
+    df['municipio_num'] = le_mun.fit_transform(df['municipio'])
+
+# Preencher dados faltantes genéricos
+
+# Preencher dados faltantes apenas para colunas numéricas
+for col in df.select_dtypes(include=[np.number]).columns:
+    df[col] = df[col].fillna(df[col].median())
+
+# Discretizar idade em faixas
+if 'idade' in df.columns:
+    df['idade_faixa'] = pd.cut(df['idade'], bins=[0, 18, 25, 35, 45, 60, 100], labels=["0-18", "19-25", "26-35", "36-45", "46-60", "60+"])
+
+# Tratamento de outliers (apenas idade)
+if 'idade' in df.columns:
+    Q1 = df['idade'].quantile(0.25)
+    Q3 = df['idade'].quantile(0.75)
+    IQR = Q3 - Q1
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    df = df[(df['idade'] >= lower) & (df['idade'] <= upper)]
+
+# Normalização de variáveis numéricas
+num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+if num_cols:
+    scaler = StandardScaler()
+    df[num_cols] = scaler.fit_transform(df[num_cols])
+
+# FILTRO APÓS TRATAMENTO
 df = df[(df["tipo_veiculo_vitima"] == "MOTOCICLETA") &
-        (df["regiao_administrativa"] == "METROPOLITANA DE SÃO PAULO")]
-df = df[df["gravidade_lesao"] != "NAO DISPONIVEL"]
-df = df[df["faixa_etaria_legal"] != "NAO DISPONIVEL"]
-df = df[df["sexo"] != "NAO DISPONIVEL"]
+    (df["regiao_administrativa"] == "METROPOLITANA DE SÃO PAULO")]
+df = df[df["gravidade_lesao"] != "DESCONHECIDO"]
+df = df[df["faixa_etaria_legal"] != "DESCONHECIDO"]
+df = df[df["sexo"] != "DESCONHECIDO"]
 
 print(f"Base final: {df.shape[0]:,} registros")
 
@@ -46,13 +121,13 @@ sns.histplot(df["idade"].dropna(), bins=30, kde=True, color="steelblue")
 plt.title("Distribuição da Idade")
 plt.xlabel("Idade")
 plt.ylabel("Frequência")
-plt.savefig("output/histograma_idade.png")
+plt.savefig("output/02_pipeline_ml/histograma_idade.png")
 
 # 2.2 Boxplot idade vs gravidade (detecção de outliers)
 plt.figure()
 sns.boxplot(x="gravidade_lesao", y="idade", data=df, hue="gravidade_lesao", palette="Set2", legend=False)
 plt.title("Boxplot da Idade por Gravidade da Lesão")
-plt.savefig("output/boxplot_idade_gravidade.png")
+plt.savefig("output/02_pipeline_ml/boxplot_idade_gravidade.png")
 
 # 2.3 Desvio padrão da idade por gravidade
 desvios = df.groupby("gravidade_lesao")["idade"].std().round(2)
@@ -69,7 +144,7 @@ print(f"\nCorrelação idade × gravidade: {corr_val:.3f}")
 plt.figure()
 sns.regplot(x="idade", y="gravidade_num", data=df, logistic=True, ci=None, scatter_kws={'alpha':0.2})
 plt.title("Correlação Idade × Gravidade (logit)")
-plt.savefig("output/correlacao_idade_gravidade.png")
+plt.savefig("output/02_pipeline_ml/correlacao_idade_gravidade.png")
 
 
 # 2.5: ANÁLISE DE CORRELAÇÕES
@@ -131,7 +206,7 @@ if len(top_5_cols) > 0:
         plt.ylabel('Gravidade (numérica)')
     
     plt.tight_layout()
-    plt.savefig('output/top_5_correlacoes.png', dpi=300, bbox_inches='tight')
+    plt.savefig('output/02_pipeline_ml/top_5_correlacoes.png', dpi=300, bbox_inches='tight')
 
 # Criar heatmap de correlações (se há pelo menos 3 variáveis)
 if len(correlations_sorted) >= 3:
@@ -140,13 +215,12 @@ if len(correlations_sorted) >= 3:
     corr_matrix = df_corr[top_vars].corr()
     
     plt.figure(figsize=(12, 8))
-    mask = np.triu(np.ones_like(corr_matrix, dtype=bool))  # Máscara triangular
-    sns.heatmap(corr_matrix, annot=True, cmap='RdBu_r', center=0, 
-                fmt='.3f', square=True, mask=mask, 
-                cbar_kws={"shrink": .8})
+    sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0, square=True, fmt='.3f',
+            cbar_kws={'shrink': 0.8, 'label': 'Correlação'}, linewidths=1.0,
+            annot_kws={'fontsize': 9, 'fontweight': 'bold'}, vmin=-1, vmax=1)
     plt.title('Matriz de Correlação - Top Variáveis')
     plt.tight_layout()
-    plt.savefig('output/matriz_correlacao.png', dpi=300, bbox_inches='tight')
+    plt.savefig('output/02_pipeline_ml/matriz_correlacao.png', dpi=300, bbox_inches='tight')
 
 print(f"\nVARIÁVEL COM MAIOR CORRELAÇÃO: {list(correlations_sorted.keys())[0] if correlations_sorted else 'Nenhuma encontrada'}")
 if correlations_sorted:
@@ -160,9 +234,8 @@ if correlations_sorted:
     grouped = df_corr.groupby('gravidade_lesao')[best_col].describe()
     print(grouped.round(3))
 
-# ================================
 # 2.6: ANÁLISE PREDITIVA (SEM DADOS DE ÓBITO)
-# ================================
+
 print("\nANÁLISE DE VARIÁVEIS PREDITIVAS (disponíveis ANTES do acidente)")
 
 # Criar dataset apenas com variáveis preditivas (excluindo óbito)
@@ -240,7 +313,7 @@ if len(correlations_pred_sorted) >= 2:
     
     plt.suptitle('TOP VARIÁVEIS PREDITIVAS vs GRAVIDADE', fontsize=14, y=0.98)
     plt.tight_layout()
-    plt.savefig('output/variaveis_preditivas.png', dpi=300, bbox_inches='tight')
+    plt.savefig('output/02_pipeline_ml/variaveis_preditivas.png', dpi=300, bbox_inches='tight')
     
     # Análise estatística das diferenças
     print(f"\nSIGNIFICÂNCIA DAS VARIÁVEIS PREDITIVAS:")
@@ -268,9 +341,9 @@ if len(correlations_pred_sorted) >= 2:
                 except:
                     print(f"{var:<25}: Erro no teste estatístico")
 
-# ================================
+
 # PARTE III: PREPARAÇÃO PARA MACHINE LEARNING (APENAS VARIÁVEIS PREDITIVAS)
-# ================================
+
 print("\nPREPARAÇÃO PARA MACHINE LEARNING (VARIÁVEIS PREDITIVAS)")
 
 df_ml = df_pred.copy()
@@ -306,11 +379,17 @@ df_ml = pd.concat([df_ml.drop(columns=cat_cols), cat_encoded_df], axis=1)
 print(f"OneHotEncoder aplicado nas colunas: {cat_cols}")
 
 # Target
+
 y = grav_encoder_pred.fit_transform(df_ml["gravidade_lesao"])
 X = df_ml.drop(columns=["gravidade_lesao"])
-
-# Garantir que não há valores ausentes restantes
-X = X.fillna(0)  # Preencher qualquer valor ausente restante com 0
+# Remover colunas categóricas (category) de X
+cat_cols_to_remove = [col for col in X.columns if str(X[col].dtype).startswith('category')]
+if cat_cols_to_remove:
+    X = X.drop(columns=cat_cols_to_remove)
+# Garantir que não há valores ausentes restantes nas colunas numéricas
+for col in X.columns:
+    if np.issubdtype(X[col].dtype, np.number):
+        X[col] = X[col].fillna(0)
 
 print(f"Dataset final: {X.shape[0]:,} amostras, {X.shape[1]} features")
 print(f"Features utilizadas: {X.columns.tolist()}")
@@ -338,18 +417,21 @@ for i, (feature, importance) in enumerate(feature_importance, 1):
 
 # Visualizar importância das features
 plt.figure(figsize=(10, 6))
-features, importances = zip(*feature_importance)
+# Selecionar apenas as 15 features mais importantes
+top_n = 15
+top_features = feature_importance[:top_n]
+features, importances = zip(*top_features)
 plt.barh(range(len(features)), importances)
 plt.yticks(range(len(features)), features)
 plt.xlabel('Importância')
-plt.title('Importância das Features (Random Forest)')
+plt.title(f'Top {top_n} Features Mais Importantes (Random Forest)')
 plt.gca().invert_yaxis()
 plt.tight_layout()
-plt.savefig('output/importancia_features.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/02_pipeline_ml/importancia_features.png', dpi=300, bbox_inches='tight')
 
-# ================================
+
 # PARTE IV: TREINO SEM BALANCEAMENTO
-# ================================
+
 
 print("\nTREINAMENTO SEM BALANCEAMENTO (APENAS VARIÁVEIS PREDITIVAS)")
 
@@ -378,8 +460,8 @@ df_fg = pd.DataFrame({
     'Recall': recall_fg,
     'F1': f1_fg
 })
-df_fg.to_csv('output/metricas_fatal_grave.csv', index=False, float_format='%.4f', encoding='utf-8')
-print("\nMétricas focadas em FATAL e GRAVE salvas em output/metricas_fatal_grave.csv:")
+df_fg.to_csv('output/02_pipeline_ml/metricas_fatal_grave.csv', index=False, float_format='%.4f', encoding='utf-8')
+print("\nMétricas focadas em FATAL e GRAVE salvas em output/02_pipeline_ml/metricas_fatal_grave.csv:")
 print(df_fg)
 
 # Threshold customizado para maximizar recall de FATAL/GRAVE
@@ -408,13 +490,13 @@ df_fg_t = pd.DataFrame({
     'Recall': recall_fg_t,
     'F1': f1_fg_t
 })
-df_fg_t.to_csv('output/metricas_fatal_grave_threshold.csv', index=False, float_format='%.4f', encoding='utf-8')
-print("\nMétricas focadas em FATAL e GRAVE (threshold customizado) salvas em output/metricas_fatal_grave_threshold.csv:")
+df_fg_t.to_csv('output/02_pipeline_ml/metricas_fatal_grave_threshold.csv', index=False, float_format='%.4f', encoding='utf-8')
+print("\nMétricas focadas em FATAL e GRAVE (threshold customizado) salvas em output/02_pipeline_ml/metricas_fatal_grave_threshold.csv:")
 print(df_fg_t)
 
-# ================================
-# PARTE V: TREINO COM SMOTE
-# ================================
+
+# PARTE V.1: TREINO COM SMOTE
+
 print("\nTREINAMENTO COM SMOTE (APENAS VARIÁVEIS PREDITIVAS)")
 
 smote = SMOTE(random_state=42)
@@ -431,9 +513,9 @@ print(f"F1-score (SMOTE): {f1_smote:.4f}")
 print("\nRELATÓRIO DETALHADO (SMOTE):")
 print(classification_report(y_test, y_pred_smote, target_names=grav_encoder_pred.classes_))
 
-# ================================
+
 # PARTE V.2: TREINO COM RANDOM UNDERSAMPLING
-# ================================
+
 print("\nTREINAMENTO COM RANDOM UNDERSAMPLING (APENAS VARIÁVEIS PREDITIVAS)")
 
 rus = RandomUnderSampler(random_state=42)
@@ -450,9 +532,9 @@ print(f"F1-score (RandomUnderSampler): {f1_rus:.4f}")
 print("\nRELATÓRIO DETALHADO (RandomUnderSampler):")
 print(classification_report(y_test, y_pred_rus, target_names=grav_encoder_pred.classes_))
 
-# ================================
-# PARTE V.1: OTIMIZAÇÃO DE HIPERPARÂMETROS COM GRIDSEARCHCV
-# ================================
+
+# PARTE V.3: OTIMIZAÇÃO DE HIPERPARÂMETROS COM GRIDSEARCHCV
+
 print("\nOtimizando hiperparâmetros com GridSearchCV (Random Forest)...")
 
 param_grid = {
@@ -475,12 +557,12 @@ print("\nRelatório de classificação (GridSearchCV - teste):")
 print(classification_report(y_test, y_pred_gs, target_names=grav_encoder_pred.classes_))
 
 # Salvar resultados em arquivo txt
-with open('GRIDSEARCHCV_RESULTADOS.txt', 'w', encoding='utf-8') as f:
+with open('output/02_pipeline_ml/GRIDSEARCHCV_RESULTADOS.txt', 'w', encoding='utf-8') as f:
     f.write(f"Melhores parâmetros: {gs.best_params_}\n")
     f.write(f"Melhor score de validação cruzada: {gs.best_score_:.3f}\n\n")
     f.write("Relatório de classificação (teste):\n")
     f.write(classification_report(y_test, y_pred_gs, target_names=grav_encoder_pred.classes_))
-print("Resultados do GridSearchCV salvos em GRIDSEARCHCV_RESULTADOS.txt")
+print("Resultados do GridSearchCV salvos em output/02_pipeline_ml/GRIDSEARCHCV_RESULTADOS.txt")
 
 
 # PARTE VI: COMPARAÇÃO E CONCLUSÕES
@@ -577,18 +659,23 @@ plt.grid(True, alpha=0.3)
 plt.subplot(2, 2, 3)
 pivot_temporal = df_pred.pivot_table(values='idade', index='mes_sinistro', 
                                     columns='dia_sinistro', aggfunc='count', fill_value=0)
-sns.heatmap(pivot_temporal, cmap='YlOrRd', cbar_kws={'label': 'Número de Acidentes'})
-plt.title('Heatmap: Acidentes por Mês vs Dia')
-plt.xlabel('Dia do Mês')
-plt.ylabel('Mês')
+ax = plt.gca()
+sns.heatmap(pivot_temporal, cmap='YlOrRd', cbar_kws={'label': 'Número de Acidentes'}, ax=ax)
+ax.set_title('Heatmap: Acidentes por Mês vs Dia')
+ax.set_xlabel('Dia do Mês')
+ax.set_ylabel('Mês')
+ax.set_xticks(np.arange(len(pivot_temporal.columns)) + 0.5)
+ax.set_xticklabels([int(d) for d in pivot_temporal.columns], rotation=0)
+ax.set_yticks(np.arange(len(pivot_temporal.index)) + 0.5)
+ax.set_yticklabels([int(m) for m in pivot_temporal.index], rotation=0)
 
 plt.tight_layout()
-plt.savefig('output/analise_temporal_detalhada.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/02_pipeline_ml/analise_temporal_detalhada.png', dpi=300, bbox_inches='tight')
 
 
 # PARTE VIII: ANÁLISE GEOGRÁFICA DETALHADA
 
-print("\n🗺️ ANÁLISE GEOGRÁFICA DETALHADA")
+print("\nANÁLISE GEOGRÁFICA DETALHADA")
 print("=" * 60)
 
 # Ranking completo dos municípios por risco
@@ -647,7 +734,7 @@ plt.axvline(x=municipal_filtered['FATAL'].mean()*100, color='black', linestyle='
 plt.legend()
 plt.gca().invert_yaxis()
 plt.tight_layout()
-plt.savefig('output/ranking_municipios_risco.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/02_pipeline_ml/ranking_municipios_risco.png', dpi=300, bbox_inches='tight')
 
 
 # PARTE IX: ANÁLISE DE INTERAÇÕES
@@ -714,8 +801,8 @@ comparacao = pd.DataFrame({
 print(comparacao.to_string(index=False))
 
 # Salvar tabela em CSV
-comparacao.to_csv('comparacao_modelos.csv', index=False, float_format='%.4f', encoding='utf-8')
-print("Tabela de comparação salva em comparacao_modelos.csv")
+comparacao.to_csv('output/02_pipeline_ml/comparacao_modelos.csv', index=False, float_format='%.4f', encoding='utf-8')
+print("Tabela de comparação salva em output/02_pipeline_ml/comparacao_modelos.csv")
 
 
 # MATRIZ DE DECISÃO (MATRIZ DE CONFUSÃO) DOS MODELOS
@@ -736,12 +823,12 @@ for nome, y_pred in modelos.items():
     disp.plot(cmap='Blues', values_format='d')
     plt.title(f'Matriz de Decisão - {nome}')
     plt.tight_layout()
-    plt.savefig(f'output/matriz_decisao_{nome.lower()}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'output/02_pipeline_ml/matriz_decisao_{nome.lower()}.png', dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Matriz de decisão gerada para {nome}: matriz_decisao_{nome.lower()}.png")
     # Salvar matriz de confusão como tabela CSV
     cm_df = pd.DataFrame(cm, index=grav_encoder_pred.classes_, columns=grav_encoder_pred.classes_)
-    cm_df.to_csv(f'matriz_confusao_{nome.lower()}.csv', encoding='utf-8')
+    cm_df.to_csv(f'output/02_pipeline_ml/matriz_confusao_{nome.lower()}.csv', encoding='utf-8')
     print(f"Matriz de confusão (tabela) salva para {nome}: matriz_confusao_{nome.lower()}.csv")
 
     # Comparação de métricas dos modelos
@@ -757,8 +844,8 @@ for nome, y_pred in modelos.items():
             'Precision-macro': precision
         })
     metricas_df = pd.DataFrame(metricas)
-    metricas_df.to_csv('metricas_modelos.csv', index=False, float_format='%.4f', encoding='utf-8')
-    print("Tabela de métricas dos modelos salva em metricas_modelos.csv")
+    metricas_df.to_csv('output/02_pipeline_ml/metricas_modelos.csv', index=False, float_format='%.4f', encoding='utf-8')
+    print("Tabela de métricas dos modelos salva em output/02_pipeline_ml/metricas_modelos.csv")
 
     # Gráfico de barras comparando F1, recall e precisão
     plt.figure(figsize=(10, 6))
@@ -772,6 +859,6 @@ for nome, y_pred in modelos.items():
     plt.title('Comparação de Métricas dos Modelos')
     plt.legend()
     plt.tight_layout()
-    plt.savefig('output/comparacao_metricas_modelos.png', dpi=300, bbox_inches='tight')
+    plt.savefig('output/02_pipeline_ml/comparacao_metricas_modelos.png', dpi=300, bbox_inches='tight')
     plt.close()
     print("Gráfico de comparação de métricas salvo em comparacao_metricas_modelos.png")

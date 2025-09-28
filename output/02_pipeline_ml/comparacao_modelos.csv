@@ -1,0 +1,6 @@
+Modelo,F1-macro
+Baseline,0.4038
+SMOTE,0.4118
+RandomUnderSampler,0.2983
+GridSearch,0.4137
+GridSearch+SMOTE,0.4119

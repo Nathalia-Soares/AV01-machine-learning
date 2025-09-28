@@ -4,6 +4,7 @@ import seaborn as sns
 import numpy as np
 
 from sklearn.preprocessing import LabelEncoder
+
 from scipy import stats
 
 # Configuração avançada de visualização
@@ -88,7 +89,7 @@ plt.ylabel('Frequência', fontsize=12)
 plt.xticks(rotation=45)
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig('output/EDA_01_DISTRIBUICAO_TIPO_VITIMA.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/EDA_01_DISTRIBUICAO_TIPO_VITIMA.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 print("2/9 - Boxplot: Tipo de Vítima vs Gravidade...")
@@ -101,7 +102,7 @@ plt.ylabel('Gravidade (1=Leve, 2=Grave, 3=Fatal)', fontsize=12)
 plt.xticks(rotation=45)
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig('output/EDA_02_BOXPLOT_TIPO_VITIMA_GRAVIDADE.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/EDA_02_BOXPLOT_TIPO_VITIMA_GRAVIDADE.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 print("3/9 - Heatmap: Tipo de Vítima vs Gravidade...")
@@ -115,7 +116,7 @@ plt.ylabel('Tipo de Vítima', fontsize=12)
 plt.xticks(rotation=45)
 plt.yticks(rotation=0)
 plt.tight_layout()
-plt.savefig('output/EDA_03_HEATMAP_TIPO_VITIMA_GRAVIDADE.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/EDA_03_HEATMAP_TIPO_VITIMA_GRAVIDADE.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 print("4/9 - Distribuição: Sexo...")
@@ -127,7 +128,7 @@ plt.xlabel('Sexo', fontsize=12)
 plt.ylabel('Frequência', fontsize=12)
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig('output/EDA_04_DISTRIBUICAO_SEXO.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/EDA_04_DISTRIBUICAO_SEXO.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 print("5/9 - Boxplot: Sexo vs Gravidade...")
@@ -139,7 +140,7 @@ plt.xlabel('Sexo', fontsize=12)
 plt.ylabel('Gravidade (1=Leve, 2=Grave, 3=Fatal)', fontsize=12)
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig('output/EDA_05_BOXPLOT_SEXO_GRAVIDADE.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/EDA_05_BOXPLOT_SEXO_GRAVIDADE.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 print("6/9 - Heatmap: Sexo vs Gravidade...")
@@ -151,7 +152,7 @@ plt.title('HEATMAP: SEXO × GRAVIDADE (%)', fontweight='bold', fontsize=14, pad=
 plt.xlabel('Gravidade da Lesão', fontsize=12)
 plt.ylabel('Sexo', fontsize=12)
 plt.tight_layout()
-plt.savefig('output/EDA_06_HEATMAP_SEXO_GRAVIDADE.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/EDA_06_HEATMAP_SEXO_GRAVIDADE.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 print("7/9 - Distribuição: Faixa Etária...")
@@ -181,7 +182,7 @@ plt.ylabel('Gravidade (1=Leve, 2=Grave, 3=Fatal)', fontsize=12)
 plt.xticks(rotation=45)
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig('output/EDA_08_BOXPLOT_FAIXA_ETARIA_GRAVIDADE.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/EDA_08_BOXPLOT_FAIXA_ETARIA_GRAVIDADE.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 print("9/9 - Matriz de Correlação: TODAS as VARIÁVEIS...")
@@ -196,7 +197,7 @@ try:
     print("   Codificando variáveis categóricas...")
     
     # Limpar e codificar cada variável
-    colunas_categoricas = ['tipo_de_vitima', 'sexo', 'faixa_etaria_demografica', 'municipio', 'tipo_via', 'regiao_administrativa']
+    colunas_categoricas = ['tipo_de_vitima', 'sexo', 'faixa_etaria_demografica', 'município', 'tipo_via', 'região_administrativa']
     
     for col in colunas_categoricas:
         if col in df.columns:
@@ -226,22 +227,22 @@ try:
     # Criar gráfico da matriz de correlação completa
     plt.figure(figsize=(16, 14))
 
-    # MATRIZ COMPLETA com cores mais contrastantes
+    # MATRIZ COMPLETA
     sns.heatmap(corr_matrix_completa, 
                 annot=True, 
-                cmap='RdBu_r',  # Paleta com mais contraste: vermelho-azul
+                cmap='coolwarm',
                 center=0,
                 square=True, 
                 fmt='.3f',
                 cbar_kws={'shrink': 0.8, 'label': 'Correlação'},
                 linewidths=1.0,
                 annot_kws={'fontsize': 9, 'fontweight': 'bold'},
-                vmin=-1, vmax=1)  # Range completo para melhor contraste
+                vmin=-1, vmax=1)
 
-    plt.title('🔗 MATRIZ DE CORRELAÇÃO: TODAS AS VARIÁVEIS', 
+    plt.title('MATRIZ DE CORRELAÇÃO: TODAS AS VARIÁVEIS', 
              fontweight='bold', fontsize=18, pad=30)
 
-    # Melhorar labels dos eixos - versão mais limpa
+    # Melhorar labels dos eixos
     nomes_colunas = [
         'Gravidade',
         'Tipo Vítima', 
@@ -267,7 +268,7 @@ try:
     plt.tight_layout()
     
     print("   Salvando arquivo...")
-    plt.savefig('output/EDA_09_MATRIZ_CORRELACAO_COMPLETA.png', dpi=300, bbox_inches='tight', facecolor='white')
+    plt.savefig('output/03_visualizacoes/EDA_09_MATRIZ_CORRELACAO_COMPLETA.png', dpi=300, bbox_inches='tight', facecolor='white')
     print("Arquivo EDA_09_MATRIZ_CORRELACAO_COMPLETA.png salvo")
     
     # Mostrar valores de correlação com Gravidade
@@ -345,7 +346,7 @@ axes[1,1].grid(True, alpha=0.3)
 axes[1,1].set_xticks(range(1, 13))
 
 plt.tight_layout()
-plt.savefig('output/DESCOBERTA_1_PADROES_MENSAIS_CRITICOS.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/DESCOBERTA_1_PADROES_MENSAIS_CRITICOS.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 
@@ -424,7 +425,7 @@ if 'FATAL' in weekly_pct.columns:
     axes[1,1].set_xticks(weekly_pct.index)
 
 plt.tight_layout()
-plt.savefig('output/DESCOBERTA_2_DIAS_MAIS_LETAIS.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/DESCOBERTA_2_DIAS_MAIS_LETAIS.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 
@@ -511,7 +512,7 @@ axes[1,1].legend()
 axes[1,1].grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.savefig('output/DESCOBERTA_3_RANKING_MUNICIPAL.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/DESCOBERTA_3_RANKING_MUNICIPAL.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 # 4. DESCOBERTA DE INTERAÇÕES - TIPO DE VÍTIMA CRÍTICO
@@ -574,7 +575,7 @@ axes[1,1].legend()
 axes[1,1].tick_params(axis='x', rotation=45)
 
 plt.tight_layout()
-plt.savefig('output/DESCOBERTA_4_RISCO_TIPO_VITIMA.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/DESCOBERTA_4_RISCO_TIPO_VITIMA.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 
@@ -675,7 +676,7 @@ axes[1,1].grid(True, alpha=0.3)
 axes[1,1].axhline(y=0, color='black', linestyle='-', alpha=0.5)
 
 plt.tight_layout()
-plt.savefig('output/DESCOBERTA_5_IMPORTANCIA_PREDITIVA.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/DESCOBERTA_5_IMPORTANCIA_PREDITIVA.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 
@@ -768,7 +769,7 @@ ax7.text(0.05, 0.95, insights_text, transform=ax7.transAxes, fontsize=12,
          bbox=dict(boxstyle="round,pad=0.5", facecolor='lightyellow', alpha=0.8))
 ax7.axis('off')
 
-plt.savefig('output/DASHBOARD_EXECUTIVO_COMPLETO.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/DASHBOARD_EXECUTIVO_COMPLETO.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 print("\nTODAS AS VISUALIZAÇÕES FORAM GERADAS!")
