@@ -659,10 +659,6 @@ plt.grid(True, alpha=0.3)
 
 # Subplot 3: Heatmap temporal
 plt.subplot(2, 2, 3)
-
-# Heatmap temporal com rótulos corrigidos
-
-# Usar os valores originais de mes_sinistro e dia_sinistro para o heatmap
 df_temporal = df_pred.copy()
 if 'mes_sinistro' in df_temporal.columns and 'dia_sinistro' in df_temporal.columns:
     # Garantir que não estão normalizados
