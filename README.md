@@ -43,8 +43,7 @@ Trabalho desenvolvido para a disciplina Aprendizagem de Máquina, do curso de De
    - scikit-learn
    - imbalanced-learn
    - scipy
-- Base de dados: arquivos CSV `pessoas_2015-2021.csv` e `pessoas_2022-2025.csv` disponíveis em:  
-  https://infosiga.detran.sp.gov.br/rest/painel/download/file/dados_infosiga.zip
+- Base de dados: arquivos CSV `pessoas_2015-2021.csv` e `pessoas_2022-2025.csv` disponíveis em [Infosiga DETRAN-SP](https://infosiga.detran.sp.gov.br/rest/painel/download/file/dados_infosiga.zip)
 
 ---
 
@@ -88,6 +87,6 @@ Trabalho desenvolvido para a disciplina Aprendizagem de Máquina, do curso de De
 
 ### Referência
 
-Base de dados original: [Infosiga DETRAN-SP](https://infosiga.detran.sp.gov.br/rest/painel/download/file/dados_infosiga.zip)
+Base de dados original: [Infosiga DETRAN-SP](https://infosiga.detran.sp.gov.br)
 
 
