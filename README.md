@@ -67,7 +67,7 @@ Trabalho desenvolvido para a disciplina Aprendizagem de Máquina, do curso de De
 
 4. Execute o pipeline de machine learning:
    ```bash
-   make pipeline_machine_learning
+   make pipeline_ml
    ```
 
 5. Gere as visualizações avançadas:
