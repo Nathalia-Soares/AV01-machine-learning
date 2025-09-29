@@ -1,6 +1,6 @@
 Modelo,F1-macro,Recall-macro,Precision-macro
-Baseline,0.4038,0.3856,0.4851
-SMOTE,0.4118,0.4028,0.4292
-RandomUnderSampler,0.2983,0.5467,0.3708
-GridSearch,0.4137,0.3985,0.4524
-GridSearch+SMOTE,0.4119,0.4005,0.4412
+Baseline,0.4040,0.3859,0.4846
+SMOTE,0.3993,0.3870,0.4385
+RandomUnderSampler,0.2984,0.5466,0.3706
+GridSearch,0.4134,0.3981,0.4521
+GridSearch+SMOTE,0.3986,0.3841,0.4722
