@@ -1,3 +1,4 @@
+import calendar
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -65,12 +66,15 @@ if 'idade' in df.columns:
 
 # Normalização de variáveis numéricas
 num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+# Remover mes_sinistro e dia_sinistro da lista de normalização
+for col_to_exclude in ['mes_sinistro', 'dia_sinistro']:
+    if col_to_exclude in num_cols:
+        num_cols.remove(col_to_exclude)
 if num_cols:
     scaler = StandardScaler()
     df[num_cols] = scaler.fit_transform(df[num_cols])
 
 # Discretizar nomes das cidades como números (LabelEncoder)
-from sklearn.preprocessing import LabelEncoder
 if 'municipio' in df.columns:
     le_mun = LabelEncoder()
     df['municipio_num'] = le_mun.fit_transform(df['municipio'])
@@ -93,12 +97,6 @@ if 'idade' in df.columns:
     lower = Q1 - 1.5 * IQR
     upper = Q3 + 1.5 * IQR
     df = df[(df['idade'] >= lower) & (df['idade'] <= upper)]
-
-# Normalização de variáveis numéricas
-num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-if num_cols:
-    scaler = StandardScaler()
-    df[num_cols] = scaler.fit_transform(df[num_cols])
 
 # FILTRO APÓS TRATAMENTO
 df = df[(df["tipo_veiculo_vitima"] == "MOTOCICLETA") &
@@ -626,14 +624,18 @@ for i, (mes, pct) in enumerate(monthly_fatal.head(3).items(), 1):
 
 # Análise por dia do mês
 print("\nPADRÕES POR DIA DO MÊS:")
-daily_analysis = df_pred.groupby(['dia_sinistro', 'gravidade_lesao']).size().unstack(fill_value=0)
-daily_pct = daily_analysis.div(daily_analysis.sum(axis=1), axis=0)
+# Usar valores originais para dia
+df_temporal = df_pred.copy()
+if 'dia_sinistro' in df_temporal.columns:
+    df_temporal['dia_sinistro_orig'] = df_temporal['dia_sinistro'].astype(int)
+    daily_analysis = df_temporal.groupby(['dia_sinistro_orig', 'gravidade_lesao']).size().unstack(fill_value=0)
+    daily_pct = daily_analysis.div(daily_analysis.sum(axis=1), axis=0)
 
-# Top 5 dias mais perigosos
-daily_fatal = daily_pct['FATAL'].sort_values(ascending=False)
-print(f"\nDIAS DO MÊS MAIS FATAIS:")
-for i, (dia, pct) in enumerate(daily_fatal.head(5).items(), 1):
-    print(f"{i}. Dia {dia}: {pct:.3f} ({pct*100:.1f}% de acidentes fatais)")
+    # Top 5 dias mais perigosos
+    daily_fatal = daily_pct['FATAL'].sort_values(ascending=False)
+    print(f"\nDIAS DO MÊS MAIS FATAIS:")
+    for i, (dia, pct) in enumerate(daily_fatal.head(5).items(), 1):
+        print(f"{i}. Dia {int(dia)}: {pct:.3f} ({pct*100:.1f}% de acidentes fatais)")
 
 # Visualização temporal
 plt.figure(figsize=(16, 10))
@@ -657,20 +659,34 @@ plt.grid(True, alpha=0.3)
 
 # Subplot 3: Heatmap temporal
 plt.subplot(2, 2, 3)
-pivot_temporal = df_pred.pivot_table(values='idade', index='mes_sinistro', 
-                                    columns='dia_sinistro', aggfunc='count', fill_value=0)
-ax = plt.gca()
-sns.heatmap(pivot_temporal, cmap='YlOrRd', cbar_kws={'label': 'Número de Acidentes'}, ax=ax)
-ax.set_title('Heatmap: Acidentes por Mês vs Dia')
-ax.set_xlabel('Dia do Mês')
-ax.set_ylabel('Mês')
-ax.set_xticks(np.arange(len(pivot_temporal.columns)) + 0.5)
-ax.set_xticklabels([int(d) for d in pivot_temporal.columns], rotation=0)
-ax.set_yticks(np.arange(len(pivot_temporal.index)) + 0.5)
-ax.set_yticklabels([int(m) for m in pivot_temporal.index], rotation=0)
 
-plt.tight_layout()
-plt.savefig('output/02_pipeline_ml/analise_temporal_detalhada.png', dpi=300, bbox_inches='tight')
+# Heatmap temporal com rótulos corrigidos
+
+# Usar os valores originais de mes_sinistro e dia_sinistro para o heatmap
+df_temporal = df_pred.copy()
+if 'mes_sinistro' in df_temporal.columns and 'dia_sinistro' in df_temporal.columns:
+    # Garantir que não estão normalizados
+    df_temporal['mes_sinistro_orig'] = df_temporal['mes_sinistro']
+    df_temporal['dia_sinistro_orig'] = df_temporal['dia_sinistro']
+    pivot_temporal = df_temporal.pivot_table(values='idade', index='mes_sinistro_orig', columns='dia_sinistro_orig', aggfunc='count', fill_value=0)
+    ax = plt.gca()
+    sns.heatmap(pivot_temporal, cmap='YlOrRd', cbar_kws={'label': 'Número de Acidentes'}, ax=ax)
+    ax.set_title('Heatmap: Acidentes por Mês vs Dia')
+    ax.set_xlabel('Dia do Mês')
+    ax.set_ylabel('Mês')
+
+    # Rótulos dos dias (1-31)
+    dias_labels = [str(int(d)) for d in pivot_temporal.columns]
+    ax.set_xticks(np.arange(len(dias_labels)) + 0.5)
+    ax.set_xticklabels(dias_labels, rotation=0)
+
+    # Rótulos dos meses abreviados
+    meses_labels = [calendar.month_abbr[int(m)].lower() if int(m) >= 1 and int(m) <= 12 else str(int(m)) for m in pivot_temporal.index]
+    ax.set_yticks(np.arange(len(meses_labels)) + 0.5)
+    ax.set_yticklabels(meses_labels, rotation=0)
+
+    plt.tight_layout()
+    plt.savefig('output/02_pipeline_ml/analise_temporal_detalhada.png', dpi=300, bbox_inches='tight')
 
 
 # PARTE VIII: ANÁLISE GEOGRÁFICA DETALHADA

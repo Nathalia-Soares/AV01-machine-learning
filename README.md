@@ -34,7 +34,7 @@ Trabalho desenvolvido para a disciplina Aprendizagem de Máquina, do curso de De
 
 ### Requisitos
 
-- Python >= 3.7
+- Python >= 3.11
 - Bibliotecas Python:
    - pandas
    - numpy

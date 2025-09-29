@@ -166,7 +166,7 @@ plt.ylabel('Frequência', fontsize=12)
 plt.xticks(rotation=45)
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig('EDA_07_DISTRIBUICAO_FAIXA_ETARIA.png', dpi=300, bbox_inches='tight')
+plt.savefig('output/03_visualizacoes/EDA_07_DISTRIBUICAO_FAIXA_ETARIA.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 print("8/9 - Boxplot: Faixa Etária vs Gravidade...")
