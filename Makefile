@@ -1,6 +1,6 @@
 # Makefile para projeto de análise de acidentes de motocicleta RMSP
 
-.PHONY: install gerar_dados pipeline_machine_learning vizualizer
+.PHONY: install gerar_dados pipeline_machine_learning visualizer
 
 install:
 	pip install -r requirements.txt
