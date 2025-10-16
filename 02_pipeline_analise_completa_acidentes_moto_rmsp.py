@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import unicodedata
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_score, recall_score, f1_score, classification_report
@@ -46,7 +47,7 @@ for col in df.columns:
         df[col] = df[col].fillna(df[col].median())
 
 # Padronizar nomes de cidades (remover espaços, acentos, caixa baixa)
-import unicodedata
+
 if 'municipio' in df.columns:
     df['municipio'] = df['municipio'].astype(str).str.strip().str.upper()
     df['municipio'] = df['municipio'].apply(lambda x: unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('ASCII'))
@@ -84,19 +85,6 @@ if 'municipio' in df.columns:
 # Preencher dados faltantes apenas para colunas numéricas
 for col in df.select_dtypes(include=[np.number]).columns:
     df[col] = df[col].fillna(df[col].median())
-
-# Discretizar idade em faixas
-if 'idade' in df.columns:
-    df['idade_faixa'] = pd.cut(df['idade'], bins=[0, 18, 25, 35, 45, 60, 100], labels=["0-18", "19-25", "26-35", "36-45", "46-60", "60+"])
-
-# Tratamento de outliers (apenas idade)
-if 'idade' in df.columns:
-    Q1 = df['idade'].quantile(0.25)
-    Q3 = df['idade'].quantile(0.75)
-    IQR = Q3 - Q1
-    lower = Q1 - 1.5 * IQR
-    upper = Q3 + 1.5 * IQR
-    df = df[(df['idade'] >= lower) & (df['idade'] <= upper)]
 
 # FILTRO APÓS TRATAMENTO
 df = df[(df["tipo_veiculo_vitima"] == "MOTOCICLETA") &
@@ -341,6 +329,7 @@ if len(correlations_pred_sorted) >= 2:
 
 
 # PARTE III: PREPARAÇÃO PARA MACHINE LEARNING (APENAS VARIÁVEIS PREDITIVAS)
+# R
 
 print("\nPREPARAÇÃO PARA MACHINE LEARNING (VARIÁVEIS PREDITIVAS)")
 
@@ -451,7 +440,7 @@ labels_fatal_grave = [list(grav_encoder_pred.classes_).index('FATAL'), list(grav
 precision_fg = precision_score(y_test, y_pred_base, labels=labels_fatal_grave, average=None)
 recall_fg = recall_score(y_test, y_pred_base, labels=labels_fatal_grave, average=None)
 f1_fg = f1_score(y_test, y_pred_base, labels=labels_fatal_grave, average=None)
-import pandas as pd
+
 df_fg = pd.DataFrame({
     'Classe': ['FATAL', 'GRAVE'],
     'Precision': precision_fg,
